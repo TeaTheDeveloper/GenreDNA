@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GenreDNA</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;max-width:1000px;margin:40px auto;padding:0 18px;background:#0d0d10;color:#eee}
+h1{font-size:42px;margin-bottom:4px}.muted{color:#999}.card{background:#17171c;border:1px solid #292930;border-radius:16px;padding:20px;margin:18px 0}
+input,button{font:inherit}button{padding:12px 18px;border:0;border-radius:10px;cursor:pointer}
+.bar{height:9px;background:#292930;border-radius:99px;overflow:hidden}.fill{height:100%;background:#eee}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.metric{padding:14px;background:#111116;border-radius:12px}
+.genre{display:grid;grid-template-columns:130px 1fr 60px;gap:10px;align-items:center;margin:10px 0}
+pre{white-space:pre-wrap;overflow:auto}
+</style>
+</head>
+<body>
+<h1>GenreDNA</h1>
+<div class="muted">Audio-native genre intelligence. Analyze the sound, not the metadata.</div>
+<div class="card">
+<input id="file" type="file" accept=".mp3,.wav,.flac,.ogg,.m4a">
+<button onclick="analyze()">Analyze</button>
+<p id="status" class="muted"></p>
+</div>
+<div id="out"></div>
+<script>
+async function analyze(){
+ const f=document.getElementById('file').files[0]; if(!f)return;
+ const status=document.getElementById('status'); status.textContent='Analyzing waveform, spectrum, rhythm and harmony...';
+ const fd=new FormData(); fd.append('file',f);
+ const r=await fetch('/api/analyze',{method:'POST',body:fd});
+ const d=await r.json(); if(!r.ok){status.textContent=d.detail||'Analysis failed';return;}
+ status.textContent='Done.';
+ const fp=d.audio_fingerprint, dna=d.genre_dna;
+ document.getElementById('out').innerHTML=`
+ <div class="card"><h2>${d.primary_genre}</h2>
+ <p>Confidence: ${(d.confidence*100).toFixed(1)}% ${d.hybrid?' · Hybrid sound':''}</p>
+ ${d.genres.map(x=>`<div class="genre"><span>${x.label}</span><div class="bar"><div class="fill" style="width:${x.probability*100}%"></div></div><span>${(x.probability*100).toFixed(1)}%</span></div>`).join('')}</div>
+ <div class="card"><h2>Audio fingerprint</h2><div class="grid">
+ ${[['BPM',fp.bpm],['Key',fp.key_estimate],['Dance',fp.danceability_proxy],['Energy',fp.energy],['Brightness',dna.brightness],['Bass',dna.bass_presence],['Percussive',dna.percussiveness],['Harmonic',dna.harmonicity]].map(x=>`<div class="metric"><b>${x[0]}</b><br>${x[1]}</div>`).join('')}
+ </div></div>
+ <div class="card"><h2>Why?</h2><ul>${d.explainability.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+ <div class="card"><h2>Genre DNA JSON</h2><pre>${JSON.stringify(d,null,2)}</pre></div>`;
+}
+</script>
+</body>
+</html>
